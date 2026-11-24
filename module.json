@@ -4,10 +4,14 @@
   "name": "Shop Bench",
   "version": "2.6.9",
   "author": "Blue Lodge Guild",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "category": "workshop",
   "tagline": "Torque-Style Mechanic's Telemetry Workbench: live OBD-II/ELM327/Carly BLE gauges, time-series recorder, Pearson correlation & voltage-ripple signal analytics, direct CAN-bus observer (jitter/dropout/byte heatmap), offline SQLite fleet ledger & multimodal ALP v1 triage loops.",
-  "hardware_badges": ["offline-capable", "zero-keys-required", "obd2-canbus-ready"],
+  "hardware_badges": [
+    "offline-capable",
+    "zero-keys-required",
+    "obd2-canbus-ready"
+  ],
   "requires_core": ">=2026.11",
   "runtime": {
     "venv_mode": "shared_locked",
@@ -17,13 +21,24 @@
     "tools_schema": "tools/schemas.json",
     "tools_dispatcher": "tools/dispatch.sh",
     "tool_bundle": "+shop",
-    "core_tools": ["vision_analyze", "web_search", "file_read", "file_write", "discord_send", "discord_send_file"],
+    "core_tools": [
+      "vision_analyze",
+      "web_search",
+      "file_read",
+      "file_write",
+      "discord_send",
+      "discord_send_file"
+    ],
     "workflows_dir": "workflows",
     "domain_keywords": "shop bench garage mechanic vehicle car truck tractor mower chainsaw hvac furnace generator maintenance oil change torque spec bolt part number oem aftermarket nameplate data plate obd obd2 obd-ii dtc check engine cel canbus can-bus elm327 carly freeze frame spark plug misfire fuel trim candump dbc",
-    "skills": ["skills/shop_bench/SKILL.md"],
+    "skills": [
+      "skills/shop_bench/SKILL.md"
+    ],
     "context_hook": "hooks/context.sh",
     "strategist_hook": "hooks/strategist.txt",
-    "slash_commands": ["commands/shop.sh"],
+    "slash_commands": [
+      "commands/shop.sh"
+    ],
     "ui": {
       "js": "ui/panel.js",
       "css": "ui/panel.css"
@@ -31,8 +46,13 @@
   },
   "permissions": {
     "tier": "A",
-    "network_egress": ["vpic.nhtsa.dot.gov"],
-    "filesystem_rw": [".george/module_data/shop-bench", ".george/artifacts"],
+    "network_egress": [
+      "vpic.nhtsa.dot.gov"
+    ],
+    "filesystem_rw": [
+      ".george/module_data/shop-bench",
+      ".george/artifacts"
+    ],
     "privileged_docker": false,
     "secrets_required": []
   },

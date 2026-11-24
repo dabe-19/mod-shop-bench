@@ -34,3 +34,10 @@ A zero-API-key, 100% offline-capable Blue Lodge module combining a **local SQLit
    Then in Shop Bench select **`Windows BT-Bridge / Wi-Fi TCP`**, enter `tcp://host.docker.internal:35000`, and click **Test Link**. Stop anytime with `Ctrl+C` or `.\scripts\win_obd_bridge.ps1 -Stop -TcpPort 35000`.
 
 See [docs/CARLY_AND_BT_BRIDGE_GUIDE.md](docs/CARLY_AND_BT_BRIDGE_GUIDE.md) for complete architecture, script internals, and troubleshooting.
+
+---
+
+## License & Disclaimer
+
+Licensed under the **Apache License, Version 2.0** — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Provided **"AS IS"** for informational and experimental use only; verify safety-critical decisions with certified instruments and professionals.
