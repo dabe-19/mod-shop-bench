@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "nameplate_manual_scout",
+  "name": "Nameplate & Manual Scout",
+  "owner": "shop-bench",
+  "owner_type": "module",
+  "category": "workshop",
+  "version": "1.0.0",
+  "description": "FIFO parallel pre-flight of local asset ledger + nameplate/data-plate context followed by a 200-turn ReAct OCR/service-manual/recall/OEM-vs-aftermarket part-number scout that persists structured maintenance cards and parts cross-references.",
+  "defaults": {
+    "max_turns": 200,
+    "ipc_priority": 100,
+    "fifo_window": 16,
+    "tool_timeout_sec": 120,
+    "require_result_json": true,
+    "output_artifact": "result.json"
+  },
+  "inputs": [
+    { "name": "asset_id", "type": "number", "label": "Asset ID (optional)", "required": false },
+    { "name": "image_path", "type": "string", "label": "Uploaded Nameplate / Data-Plate Image Path", "required": false },
+    { "name": "equipment_hint", "type": "string", "label": "Equipment Make/Model Hint (if no photo)", "required": false }
+  ],
+  "tools": {
+    "bundles": ["+shop"],
+    "allow": [
+      "vision_analyze",
+      "web_search",
+      "shop_ledger_query",
+      "shop_asset_save",
+      "shop_spec_save",
+      "file_read",
+      "file_write",
+      "discord_send"
+    ],
+    "deny": []
+  },
+  "phases": [
+    {
+      "id": "preflight_ledger",
+      "name": "Phase 1: Parallel FIFO Local Ledger & Inventory Probe",
+      "kind": "fifo_parallel",
+      "enabled": true,
+      "continue_on_error": true,
+      "timeout_sec": 45,
+      "description": "Pulls existing assets, service intervals, torque specs, and parts stock concurrently before Turn 1.",
+      "tasks": [
+        {
+          "id": "ledger_state",
+          "tool": "shop_ledger_query",
+          "args_template": {
+            "asset_id": "{{params.asset_id}}"
+          },
+          "output_key": "ledger"
+        }
+      ]
+    },
+    {
+      "id": "manual_and_parts_scout",
+      "name": "Phase 2: ReAct Nameplate OCR, Service Manual & OEM/Aftermarket Part Scout",
+      "kind": "react",
+      "enabled": true,
+      "max_turns": 200,
+      "tool_filter": "default",
+      "tools_allow": [],
+      "prompt_template": "Execute the Shop Bench Nameplate & Manual Scout workflow.\n\nINPUTS:\n- Asset ID: {{params.asset_id | (create or match in ledger)}}\n- Uploaded Nameplate Photo: {{params.image_path | (none)}}\n- Equipment Hint: {{params.equipment_hint | (read from photo or active asset)}}\n- Output artifact path: {{result_path}}\n\nPHASE 1 LOCAL LEDGER SNAPSHOT:\n{{phase.preflight_ledger.ledger}}\n\nSTEPS:\n1. If `image_path` is provided and non-empty, call `vision_analyze` on `{{params.image_path}}` to transcribe exact make, model, serial/VIN, engine family, voltage/BTU/HP ratings, and spec numbers from the data plate.\n2. Use `web_search` (when online) or mechanical reference knowledge to look up:\n   - Official service intervals & fluid capacities (oil viscosity/capacity, spark plug gap, filter intervals)\n   - Key torque specs (drain plug, wheel lugs/blade bolt, head/spark plug)\n   - OEM part numbers + reliable aftermarket cross-references (e.g. WIX, NGK, ACDelco, Gates)\n   - Any major safety recalls or common known failure points.\n3. Persist the findings directly into Shop Bench SQLite using `shop_asset_save` (if creating/updating asset specs) and `shop_spec_save` (`kind='interval'`, `kind='torque'`, `kind='part'`, and a summary `kind='log'`).\n4. Write structured JSON to `{{result_path}}` via `file_write` with keys: `workflow`, `asset_id`, `identified_equipment`, `intervals_added`, `torque_specs_added`, `parts_xref`, `recalls_or_notes`, and `summary_markdown`.\n5. Call `milestone_complete` and return a concise shop card.",
+      "gate": {
+        "type": "json_file",
+        "path": "{{result_path}}",
+        "required_keys": ["workflow", "summary_markdown"]
+      }
+    }
+  ]
+}

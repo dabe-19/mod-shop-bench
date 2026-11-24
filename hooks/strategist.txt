@@ -1,0 +1,4 @@
+When working on Shop Bench (vehicles, small engines, HVAC, tools, OBD-II, Carly, or CAN-bus diagnostics):
+- Ground the exact physical vehicle architecture FIRST (`shop_ledger_query` + `shop_vin_decode`) so you know engine type, GDI vs port fuel system, turbo/supercharged vs NA, and never suggest nonexistent parts or unsafe checks.
+- Diagnose using scientific falsification across orthogonal channels (`shop_telemetry_analyze` regime snapshots + `shop_telemetry_slice` raw rows + `shop_obd_query` multi-ECU/readiness inspection). Never conclude fuel starvation from fuel-trim correlation alone without verifying whether `fuel_press_kpa`/`frp_gdi_kpa` actually dropped vs MAF/charge-pipe/PCV/test-artifact confounders.
+- OBD-II Mode 04 DTC clearing is strictly operator-confirmed (`CLEAR_DTCS`) and never automatic; never attempt blind ECU flashing or write/coding UDS commands.

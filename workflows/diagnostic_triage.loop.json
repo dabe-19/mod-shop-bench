@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "diagnostic_triage",
+  "name": "Mechanic's Diagnostic Triage (Time-Series Signals + Voltage + CAN-Bus + Vision)",
+  "owner": "shop-bench",
+  "owner_type": "module",
+  "category": "workshop",
+  "version": "2.0.0",
+  "description": "FIFO parallel pre-flight of vehicle ledger/history, statistical time-series signal & correlation analysis (fuel trims, voltage ripple, O2 waveforms, Z-score glitches), direct CAN-bus bus-health/dropout/byte-heatmap observation, and SAE J2012 DTC reference — followed by a 200-turn ReAct mechanic's root-cause triage.",
+  "defaults": {
+    "max_turns": 200,
+    "ipc_priority": 100,
+    "fifo_window": 16,
+    "tool_timeout_sec": 120,
+    "require_result_json": true,
+    "output_artifact": "result.json"
+  },
+  "inputs": [
+    { "name": "asset_id", "type": "number", "label": "Asset ID", "required": false },
+    { "name": "run_id", "type": "number", "label": "Recorded Telemetry Run ID (optional, defaults to latest)", "required": false },
+    { "name": "transport", "type": "string", "label": "Active OBD-II Transport (sim, tcp, serial, ble)", "required": false },
+    { "name": "port_or_addr", "type": "string", "label": "Active OBD-II Bridge Address or Serial Port", "required": false },
+    { "name": "symptom", "type": "string", "label": "Symptom / Fault Description", "required": true },
+    { "name": "dtc_codes", "type": "string", "label": "OBD-II DTC Codes (comma-separated, e.g. P0171,P0302)", "required": false },
+    { "name": "image_path", "type": "string", "label": "Optional Photo (spark plug, belt, PCB, leak)", "required": false },
+    { "name": "freeze_frame_path", "type": "string", "label": "Optional Freeze-Frame CSV Path", "required": false }
+  ],
+  "tools": {
+    "bundles": ["+shop"],
+    "allow": [
+      "vision_analyze",
+      "web_search",
+      "shop_ledger_query",
+      "shop_asset_save",
+      "shop_vin_decode",
+      "shop_telemetry_analyze",
+      "shop_telemetry_slice",
+      "shop_can_observe",
+      "shop_obd_dtc_lookup",
+      "shop_obd_discover",
+      "shop_obd_scan",
+      "shop_obd_query",
+      "shop_pid_discover",
+      "shop_elm_can_sniff",
+      "shop_can_decode",
+      "shop_freeze_frame_parse",
+      "shop_spec_save",
+      "shop_export_report",
+      "file_read",
+      "file_write",
+      "discord_send"
+    ],
+    "deny": []
+  },
+  "phases": [
+    {
+      "id": "preflight_diag",
+      "name": "Phase 1: Parallel FIFO Vehicle Ledger, Time-Series Signal Lab, CAN Observer & DTC Reference",
+      "kind": "fifo_parallel",
+      "enabled": true,
+      "continue_on_error": true,
+      "timeout_sec": 45,
+      "description": "Concurrently loads vehicle metadata & past service/DTC history, full statistical time-series signal/correlation/voltage analysis, direct CAN-bus jitter/dropout/byte-activity observation, and SAE J2012 DTC definitions.",
+      "tasks": [
+        {
+          "id": "ledger_state",
+          "tool": "shop_ledger_query",
+          "args_template": {
+            "asset_id": "{{params.asset_id}}"
+          },
+          "output_key": "ledger"
+        },
+        {
+          "id": "telemetry_signals",
+          "tool": "shop_telemetry_analyze",
+          "args_template": {
+            "asset_id": "{{params.asset_id}}",
+            "run_id": "{{params.run_id}}"
+          },
+          "output_key": "signals"
+        },
+        {
+          "id": "can_bus_obs",
+          "tool": "shop_can_observe",
+          "args_template": {
+            "asset_id": "{{params.asset_id}}"
+          },
+          "output_key": "can_bus"
+        },
+        {
+          "id": "dtc_decode",
+          "tool": "shop_obd_dtc_lookup",
+          "args_template": {
+            "codes": ["{{params.dtc_codes}}"]
+          },
+          "output_key": "dtc_ref"
+        }
+      ]
+    },
+    {
+      "id": "root_cause_triage",
+      "name": "Phase 2: ReAct Multi-Signal, Voltage, CAN-Bus & Multimodal Root-Cause Triage",
+      "kind": "react",
+      "enabled": true,
+      "max_turns": 200,
+      "tool_filter": "default",
+      "tools_allow": [],
+      "prompt_template": "You are a Master Diagnostic Technician running a First-Principles Vehicle Health Check & Root-Cause Investigation.\n\nINPUTS:\n- Asset ID: {{params.asset_id | (none — check ledger or create from decoded VIN)}}\n- Recorded Telemetry Run ID: {{params.run_id | (latest recorded run)}}\n- Active Live OBD-II Adapter: transport={{params.transport | sim}}, port_or_addr={{params.port_or_addr | (none)}}\n- Operator Notes / Driving Conditions / Symptom: {{params.symptom}}\n- DTC Codes: {{params.dtc_codes | (inspect active & historical DTCs below)}}\n- Inspection Photo: {{params.image_path | (none)}}\n- Freeze-Frame CSV: {{params.freeze_frame_path | (none)}}\n- Output artifact path: {{result_path}}\n\nPHASE 1 VEHICLE METADATA, SERVICE HISTORY & PAST CODES:\n{{phase.preflight_diag.ledger}}\n\nPHASE 1 TIME-SERIES SIGNAL, OPERATING-REGIME SNAPSHOTS, CORRELATION & ALL-ECU-PID ANALYSIS (UP TO 600 BUFFERED SAMPLES):\n{{phase.preflight_diag.signals}}\n\nPHASE 1 DIRECT CAN-BUS SIGNAL OBSERVER (HZ, JITTER, DROPOUTS, BYTE HEATMAP):\n{{phase.preflight_diag.can_bus}}\n\nPHASE 1 DTC REFERENCE:\n{{phase.preflight_diag.dtc_ref}}\n\nDIAGNOSTIC METHODOLOGY (THINK LIKE A CURIOUS MASTER MECHANIC — DO NOT FOLLOW RIGID CHECKLISTS BLINDLY):\n1. **Establish Physical Vehicle Architecture FIRST**: If you do not yet have exact Year, Make, Model, Engine, Fuel Injection (GDI vs Port vs Diesel), and Aspiration (Turbo/Supercharged vs NA), scan the VIN via `shop_obd_scan` (if live hardware is connected) and call `shop_vin_decode`! Never make generic recommendations that contradict the physical car (e.g. never recommend a mechanical low-pressure rail gauge on a 350–2,900 PSI GDI rail, or replacing a nonexistent inline fuel filter on an in-tank sock system, or applying gasoline fuel-trim rules to a diesel).\n2. **Be Curious Across ECUs & Raw Operating Regimes**:\n   - Do NOT rely on summary means or a single Pearson `r` alone! Examine `signals.regime_snapshots` (`idle_baseline` vs `peak_rpm` vs `peak_load_or_map` vs `peak_fuel_trim` vs `min_fuel_pressure`) AND call `shop_telemetry_slice` to inspect raw multi-channel rows during interesting events (e.g. `sort_by='rpm', desc=true` or `filter_channel='ltft_b1', min_val=10`).\n   - Factor in HOW the operator tested the car (e.g. stationary brake-holding or free-revving produces high RPM with very low load / deep manifold vacuum `15–25 kPa`, which behaves completely differently from sustained highway load!).\n   - When live hardware is connected (`tcp`/`serial`), use `shop_obd_query` to curiously inspect ALL responding CAN ECUs (`7E8` ECM, `7EA` TCM, etc.), Mode 01 PID 01 emissions readiness monitors, Calibration IDs, and any additional PIDs that test your hypotheses. Use `web_search` for vehicle-specific OEM known issues/TSBs when helpful.\n3. **Differential Hypothesis & Falsification (CRITICAL!)**:\n   - For EVERY candidate fault, actively look for **disconfirming / falsifying evidence** across orthogonal channels BEFORE ranking it high:\n     * Example: If fuel trims rise with RPM, check `fuel_press_kpa` (lift pump) AND `frp_gdi_kpa` (GDI rail) in the peak-RPM / peak-load raw rows! If fuel pressure stays flat/healthy or scales cleanly under load, **pump/filter fuel starvation is FALSIFIED** — investigate confounders that produce the exact same positive trim-vs-RPM slope: contaminated/under-reporting MAF sensor, post-MAF / turbo charge-pipe or intercooler boot leak, PCV check valve, winter ethanol fuel blend (check `ambient_c`), or stationary test artifacts!\n     * Example: Before blaming a sensor or ECU for U-codes, check `battery_v` ripple/sag and CAN-bus dropout gaps.\n     * Example: Check `evap_purge_pct`, `cat_temp_b1s1`, `cmd_lambda`, `baro_kpa`, `ambient_c` vs `iat_c`, and `o2_b1s1_v` vs `o2_b1s2_v` together as one coherent physical system.\n   - Explicitly state BOTH the supporting evidence AND any falsifying/confounding evidence for your top hypotheses.\n4. **Multimodal & File Inputs**: If `image_path` is provided, call `vision_analyze` on `{{params.image_path}}`. If `freeze_frame_path` is provided, call `shop_freeze_frame_parse`.\n5. **Record & Deliver**:\n   - If no vehicle asset exists yet in `ledger`, save the properly decoded vehicle (`name`, `year`, `make`, `model`, `vin_or_serial`, `engine_spec`) via `shop_asset_save`.\n   - Save your findings and safe, vehicle-specific, cheapest-first verification checklist via `shop_spec_save(kind='log', asset_id=..., log_type='triage', title=..., summary=..., checklist=[...])`.\n   - Write structured JSON to `{{result_path}}` via `file_write` with keys: `workflow`, `asset_id`, `vehicle_architecture`, `ranked_causes`, `falsified_or_ruled_out`, `signal_findings`, `ecu_findings`, `can_findings`, `checklist`, `safety_warnings`, and `summary_markdown`.\n   - Call `milestone_complete` and deliver a clear, honest, master-mechanic report.",
+      "gate": {
+        "type": "json_file",
+        "path": "{{result_path}}",
+        "required_keys": ["workflow", "checklist", "summary_markdown"]
+      }
+    }
+  ]
+}

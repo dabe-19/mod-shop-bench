@@ -1,0 +1,281 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_ledger_query",
+      "description": "Query the Shop Bench offline SQLite ledger: lists all tracked vehicles, small engines, HVAC systems, tools, active asset service intervals (due/overdue), torque specs, parts inventory, low-stock items, maintenance logs, and recent OBD-II/CAN sessions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "asset_id": { "type": "integer", "description": "Optional specific asset ID to fetch full bundle for." },
+          "category": { "type": "string", "description": "Optional category filter (vehicle, small_engine, hvac, generator, tool, appliance, marine)." }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_asset_save",
+      "description": "Create or update an asset (vehicle, small engine, HVAC, generator, tool, appliance) in the Shop Bench SQLite ledger.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "description": "Existing asset ID to update (omit to create new)." },
+          "name": { "type": "string", "description": "Human-friendly asset name." },
+          "category": { "type": "string", "enum": ["vehicle", "small_engine", "hvac", "generator", "tool", "appliance", "marine", "other"] },
+          "make": { "type": "string" },
+          "model": { "type": "string" },
+          "year": { "type": "string" },
+          "vin_or_serial": { "type": "string" },
+          "meter_value": { "type": "number" },
+          "meter_unit": { "type": "string", "description": "mi, km, or hrs" },
+          "engine_spec": { "type": "string" },
+          "fluid_summary": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_spec_save",
+      "description": "Save a service interval, torque spec, parts/consumables cross-reference, or diagnostic/maintenance log entry to an asset in Shop Bench.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["interval", "torque", "part", "log"], "description": "Record type to store." },
+          "asset_id": { "type": "integer" },
+          "task_name": { "type": "string" },
+          "interval_value": { "type": "number" },
+          "interval_unit": { "type": "string" },
+          "fluid_or_part": { "type": "string" },
+          "capacity_spec": { "type": "string" },
+          "component": { "type": "string" },
+          "spec_value": { "type": "string" },
+          "unit": { "type": "string" },
+          "fastener_size": { "type": "string" },
+          "sequence_notes": { "type": "string" },
+          "part_name": { "type": "string" },
+          "oem_number": { "type": "string" },
+          "aftermarket_xref": { "type": "string" },
+          "qty_on_hand": { "type": "integer" },
+          "min_qty": { "type": "integer" },
+          "location_bin": { "type": "string" },
+          "log_type": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "checklist": { "type": "array", "items": { "type": "string" } },
+          "notes": { "type": "string" }
+        },
+        "required": ["kind"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_obd_discover",
+      "description": "Discover connected USB ELM327 serial ports (/dev/ttyUSB*, /dev/ttyACM*), Classic Bluetooth RFCOMM (/dev/rfcomm*), Carly/OBDLink BLE GATT adapters, and Linux SocketCAN (can0/vcan0) interfaces.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "scan_ble": { "type": "boolean", "default": true }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_obd_scan",
+      "description": "Run a read-only OBD-II diagnostic scan (Mode 01 PIDs, Mode 03/07/0A DTCs, Mode 09 VIN, battery voltage, readiness) over sim, USB/BT serial, or Carly/ELM327 BLE.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transport": { "type": "string", "enum": ["sim", "serial", "tcp", "ble"], "default": "sim" },
+          "port_or_addr": { "type": "string", "description": "Serial device path (/dev/ttyUSB0, /dev/rfcomm0) or BLE address." },
+          "sim_profile": { "type": "string", "enum": ["healthy", "lean_misfire", "can_bus_fault"], "default": "lean_misfire" },
+          "asset_id": { "type": "integer" },
+          "save_session": { "type": "boolean", "default": true }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_obd_dtc_lookup",
+      "description": "Decode one or more SAE J2012 OBD-II trouble codes (P/B/C/U) offline with severity, affected system, and likely mechanical/electrical root causes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "codes": { "type": "array", "items": { "type": "string" }, "description": "List of DTCs such as ['P0171', 'P0302', 'U0100']." }
+        },
+        "required": ["codes"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_can_decode",
+      "description": "Decode a Linux candump log or live SocketCAN capture (ISO-15765 OBD-II frames and optional DBC bitfield signals) and save the analysis to Shop Bench.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "candump_text": { "type": "string", "description": "Raw candump log lines." },
+          "dbc_text": { "type": "string", "description": "Optional DBC message/signal definition text." },
+          "capture_interface": { "type": "string", "description": "Optional live SocketCAN interface (e.g. can0, vcan0)." },
+          "duration_sec": { "type": "number", "default": 2.0 },
+          "asset_id": { "type": "integer" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_can_observe",
+      "description": "Directly observe and troubleshoot CAN-bus signals: returns per-CAN-ID frame rate (Hz), timing jitter (ms), ECU dropout gaps, per-byte mutability heatmap (STATIC vs DYNAMIC bytes), ISO-15765 OBD-II frames, and DBC signals from latest saved capture, live SocketCAN, or pasted candump.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "asset_id": { "type": "integer" },
+          "capture_interface": { "type": "string", "description": "Optional live SocketCAN interface (e.g. can0, vcan0)." },
+          "candump_text": { "type": "string" },
+          "dbc_text": { "type": "string" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_telemetry_analyze",
+      "description": "Run statistical time-series signal & correlation analysis over a recorded OBD-II telemetry run: returns vehicle metadata (year/make/model/VIN), per-channel stats/drift, battery voltage ripple/brownout health, O2 catalyst storage ratio, Pearson cross-channel correlations, automated fault signatures, Z-score anomalies, and active/historical DTCs.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "run_id": { "type": "integer", "description": "Optional telemetry run ID (defaults to latest run for asset)." },
+          "asset_id": { "type": "integer" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_pid_discover",
+      "description": "Query SAE J1979 Mode 01 supported-PID bitmasks (0100/0120/0140/0160) over sim, serial, tcp (Windows BT Bridge / Wi-Fi), or BLE to list every standard and imported custom PID supported by this vehicle.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transport": { "type": "string", "enum": ["sim", "serial", "tcp", "ble"], "default": "sim" },
+          "port_or_addr": { "type": "string" },
+          "asset_id": { "type": "integer" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_elm_can_sniff",
+      "description": "Passively sniff raw CAN-bus frames through an ELM327/STN/Carly SPP adapter via ATH1 + optional ATCRA <id> + ATMA, then run jitter, ECU dropout, byte-mutability heatmap, and DBC decoding.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transport": { "type": "string", "enum": ["sim", "serial", "tcp"], "default": "sim" },
+          "port_or_addr": { "type": "string" },
+          "filter_can_id": { "type": "string", "description": "Optional 3-char hex CAN arbitration ID filter (e.g. '201' or '7E8') to prevent ELM327 buffer overflow." },
+          "duration_sec": { "type": "number", "default": 2.5 },
+          "asset_id": { "type": "integer" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_freeze_frame_parse",
+      "description": "Parse an uploaded or pasted OBD-II freeze-frame / PID CSV or JSON log (Torque Pro, Car Scanner, Carly export) and flag fuel-trim, coolant, or voltage anomalies.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "csv_text": { "type": "string" },
+          "file_path": { "type": "string" },
+          "asset_id": { "type": "integer" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_vin_decode",
+      "description": "Decode a 17-character VIN via NHTSA vPIC (free, zero keys, with offline WMI fallback) to obtain exact Year, Make, Model, Trim, Engine displacement/cylinders, Fuel Injection type (GDI vs Port vs Diesel), Forced Induction (Turbo/Supercharged vs NA), Drive Type, and vehicle-specific diagnostic architecture notes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "vin": { "type": "string", "description": "17-character vehicle VIN (e.g. 1HGCM82633A004352)." }
+        },
+        "required": ["vin"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_telemetry_slice",
+      "description": "Query and filter raw multi-channel rows from the rolling 600-sample SQLite telemetry buffer (e.g. sort by rpm desc, or filter where ltft_b1 >= 12 or map_kpa >= 70) so you can inspect the exact physical operating regime behind any correlation or anomaly instead of relying only on averages.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "run_id": { "type": "integer", "description": "Telemetry run ID (defaults to latest run)." },
+          "asset_id": { "type": "integer" },
+          "sort_by": { "type": "string", "description": "Channel to sort by (e.g. 'ts', 'rpm', 'load_pct', 'map_kpa', 'total_ft_b1', 'ltft_b1', 'battery_v', 'frp_gdi_kpa').", "default": "ts" },
+          "desc": { "type": "boolean", "default": false },
+          "filter_channel": { "type": "string", "description": "Optional channel to filter on (e.g. 'rpm', 'ltft_b1', 'map_kpa', 'total_ft_b1')." },
+          "min_val": { "type": "number", "description": "Optional minimum threshold for filter_channel." },
+          "max_val": { "type": "number", "description": "Optional maximum threshold for filter_channel." },
+          "limit": { "type": "integer", "default": 15 }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_obd_query",
+      "description": "Curious, strictly read-only multi-ECU OBD-II inspection tool: discovers all responding CAN ECUs with ATH1 headers (e.g. 7E8 ECM, 7EA TCM, 7EB ABS/Chassis), decodes Mode 01 PID 01 emissions readiness monitors, reads Mode 09 Calibration IDs & ECU names, and executes safe read-only PID/UDS 0x22 commands (01xx, 02xxxx, 03, 06xx, 07, 09xx, 0A, 22xxxx) on an optional ECU header (7E0-7EF). All write/clear modes are strictly blocked.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transport": { "type": "string", "enum": ["sim", "serial", "tcp"], "default": "sim" },
+          "port_or_addr": { "type": "string" },
+          "discover_ecus": { "type": "boolean", "default": true },
+          "ecu_header": { "type": "string", "description": "Optional 3-char hex CAN request header (e.g. '7E0' ECM, '7E1' TCM, '7DF' broadcast)." },
+          "commands": { "type": "array", "items": { "type": "string" }, "description": "Optional list of strictly read-only OBD/UDS hex commands (e.g. ['0101', '010A', '0123', '0904'])." }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_export_report",
+      "description": "Export a complete diagnostic & AI Mechanic Copilot report (vehicle metadata, active/historical DTCs, signal & correlation analytics, voltage/O2 health, CAN-bus observer summary, LLM triage logs & repair checklists, service intervals, torque specs) as Markdown, Print-Ready HTML, or JSON saved in the Shop Bench exports directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "asset_id": { "type": "integer", "description": "Optional vehicle/asset ID (defaults to active/latest asset)." },
+          "run_id": { "type": "integer", "description": "Optional telemetry run ID (defaults to latest run)." },
+          "format": { "type": "string", "enum": ["markdown", "html", "json"], "default": "markdown" }
+        }
+      }
+    }
+  }
+]
